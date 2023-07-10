@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model RenderingRSS.Pages.IndexModel
 @{
     ViewData["Title"] = "RSS Feeds";
@@ -6,10 +6,10 @@
 
 <h1>RSS Feeds</h1>
 
-@if (Model.ItemsProperties.Count > 0)
+@if (Model.RssItems.Count > 0)
 {
     <div class="card-deck">
-        @foreach (var item in Model.ItemsProperties)
+        @foreach (var item in Model.RssItems)
         {
             <div class="card mb-3">
                 <div class="card-body">
