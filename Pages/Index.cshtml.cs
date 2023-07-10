@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Xml.Linq;
 
@@ -9,7 +9,7 @@ namespace RenderingRSS.Pages
         private const int PageSize = 10;
 
         private readonly IHttpClientFactory _httpClientFactory;
-        public List<ItemProperties> ItemsProperties { get; set; } = new List<ItemProperties>();
+        public List<RssItem> RssItems { get; set; } = new List<RssItem>();
         public int CurrentPage { get; set; } = 1;
         public int TotalPages { get; set; } = 1;
 
@@ -21,7 +21,7 @@ namespace RenderingRSS.Pages
         public async Task<IActionResult> OnGetAsync(int pageNumber = 1)
         {
             var httpClient = _httpClientFactory.CreateClient();
-            var opmlResponse = await FetchXmlContentAsync(httpClient, "https://blue.feedland.org/opml?screenname=dave");
+            var opmlResponse = await httpClient.GetAsync("https://blue.feedland.org/opml?screenname=dave");
 
             if (opmlResponse.IsSuccessStatusCode)
             {
@@ -30,13 +30,13 @@ namespace RenderingRSS.Pages
 
                 var tasks = feedUrls.Select(url => FetchAndParseRssFeedAsync(httpClient, url));
                 var rssResponses = await Task.WhenAll(tasks);
-                ItemsProperties = rssResponses.SelectMany(r => r).ToList();
+                RssItems = rssResponses.SelectMany(r => r).ToList();
 
-                TotalPages = (int)Math.Ceiling((double)ItemsProperties.Count / PageSize);
+                TotalPages = (int)Math.Ceiling((double)RssItems.Count / PageSize);
                 CurrentPage = pageNumber;
 
                 // Apply paging
-                ItemsProperties = ItemsProperties
+                RssItems = RssItems
                     .Skip((pageNumber - 1) * PageSize)
                     .Take(PageSize)
                     .ToList();
@@ -47,11 +47,6 @@ namespace RenderingRSS.Pages
             {
                 return RedirectToPage("/Error");
             }
-        }
-
-        private async Task<HttpResponseMessage> FetchXmlContentAsync(HttpClient httpClient, string url)
-        {
-            return await httpClient.GetAsync(url);
         }
 
         private List<string> ParseOpmlContent(string opmlContent)
@@ -73,43 +68,43 @@ namespace RenderingRSS.Pages
             return feedUrls;
         }
 
-        private async Task<List<ItemProperties>> FetchAndParseRssFeedAsync(HttpClient httpClient, string url)
+        private async Task<List<RssItem>> FetchAndParseRssFeedAsync(HttpClient httpClient, string url)
         {
-            var itemPropertiesList = new List<ItemProperties>();
+            var rssItemList = new List<RssItem>();
 
-            var response = await FetchXmlContentAsync(httpClient, url);
+            var response = await httpClient.GetAsync(url);
             if (response.IsSuccessStatusCode)
             {
                 var xmlContent = await response.Content.ReadAsStringAsync();
-                itemPropertiesList = ParseXmlContent(xmlContent);
+                rssItemList = ParseXmlContent(xmlContent);
             }
 
-            return itemPropertiesList;
+            return rssItemList;
         }
 
-        private List<ItemProperties> ParseXmlContent(string xmlContent)
+        private List<RssItem> ParseXmlContent(string xmlContent)
         {
-            var itemPropertiesList = new List<ItemProperties>();
+            var rssItemList = new List<RssItem>();
             var doc = XDocument.Parse(xmlContent);
             var items = doc.Descendants("item");
 
             foreach (var item in items)
             {
-                var itemProperties = new ItemProperties
+                var rssItem = new RssItem
                 {
                     Description = item.Element("description")?.Value,
                     PubDate = item.Element("pubDate")?.Value,
                     Link = item.Element("link")?.Value,
                 };
 
-                itemPropertiesList.Add(itemProperties);
+                rssItemList.Add(rssItem);
             }
 
-            return itemPropertiesList;
+            return rssItemList;
         }
     }
 
-    public class ItemProperties
+    public class RssItem
     {
         public string Description { get; set; }
         public string PubDate { get; set; }
